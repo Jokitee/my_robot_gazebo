@@ -95,7 +95,7 @@
       <child>right_wheel</child>
       <axis><xyz>0 0 1</xyz></axis>
     </joint>
-    <joint name="caster_joint" type="ball">
+    <joint name="caster_joint" type="fixed">
       <parent>chassis</parent>
       <child>caster</child>
     </joint>
