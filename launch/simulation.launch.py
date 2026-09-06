@@ -28,8 +28,8 @@ def generate_launch_description():
         package='ros_gz_bridge',
         executable='parameter_bridge',
         arguments=[
-            '/cmd_vel@geometry_msgs/msg/Twist@gz.msgs.Twist',
-            '/odom@nav_msgs/msg/Odometry@gz.msgs.Odometry'
+            '/cmd_vel@geometry_msgs/msg/Twist@ignition.msgs.Twist',
+            '/odom@nav_msgs/msg/Odometry@ignition.msgs.Odometry'
         ],
         output='screen'
     )
