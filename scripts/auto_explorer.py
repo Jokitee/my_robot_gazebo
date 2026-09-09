@@ -22,16 +22,21 @@ class FrontierAutoExplorer(Node):
     def __init__(self):
         super().__init__('auto_explorer')
 
-        # 1. 通信接口配置
+        # 1. 通信接口参数
+        self.declare_parameter('scan_topic', '/scan')
+        self.declare_parameter('cmd_topic', '/cmd_vel')
+        scan_topic = self.get_parameter('scan_topic').value
+        cmd_topic = self.get_parameter('cmd_topic').value
+
         self.scan_sub = self.create_subscription(
             LaserScan,
-            '/red_robot/scan',
+            scan_topic,
             self.scan_callback,
             10
         )
         self.cmd_pub = self.create_publisher(
             Twist,
-            '/red_robot/cmd_vel',
+            cmd_topic,
             10
         )
 
@@ -60,39 +65,57 @@ class FrontierAutoExplorer(Node):
 
     def detect_unknown_frontiers(self, ranges, angle_min, angle_increment):
         """
-        利用大阈值策略分析雷达点云的连续性，提取未闭合的未知开阔区域
+        利用大阈值策略分析雷达有效扇区（前向左右180°）的点云连续性，提取未闭合的未知开阔区域
         返回: 最佳未知区域的目标偏航角 (弧度，正为左，负为右)
         """
         num_points = len(ranges)
         if num_points == 0:
             return 0.0, False
 
-        # 转换极坐标为平面直角坐标 (用于计算相邻点物理欧氏距离)
-        cartesian_points = []
+        # 1. 仅提取前向左右180度 [-90°, +90°] 内的有效扇区点云
+        fov_half_rad = math.radians(90.0)
+        valid_front_points = []
+
         for i in range(num_points):
             r = ranges[i]
-            # 过滤无效或超远点，限制在有效感应范围
-            valid_r = r if (0.1 < r < 12.0 and not math.isinf(r) and not math.isnan(r)) else 10.0
-            angle = angle_min + i * angle_increment
-            x = valid_r * math.cos(angle)
-            y = valid_r * math.sin(angle)
-            cartesian_points.append((valid_r, angle, x, y))
+            raw_angle = angle_min + i * angle_increment
+            # 归一化到 [-pi, pi]
+            norm_angle = math.atan2(math.sin(raw_angle), math.cos(raw_angle))
 
-        # 寻找非闭合开口 (Frontier Gaps)
+            # 仅处理前向半周 180° 有效视野
+            if abs(norm_angle) <= fov_half_rad:
+                # 过滤无效或超远点
+                if math.isinf(r) or math.isnan(r) or r > 10.0:
+                    effective_r = 10.0  # 视作深远开阔未知区域
+                elif r < 0.05:
+                    effective_r = 0.05
+                else:
+                    effective_r = r
+
+                x = effective_r * math.cos(norm_angle)
+                y = effective_r * math.sin(norm_angle)
+                valid_front_points.append((norm_angle, effective_r, x, y))
+
+        if len(valid_front_points) < 5:
+            return 0.0, True
+
+        # 按角度从右 (-90°) 到左 (+90°) 排序
+        valid_front_points.sort(key=lambda p: p[0])
+
+        # 2. 在 180° 扇区弧段上利用大阈值策略寻找非闭合开口 (Frontier Gaps)
         open_frontiers = []
         current_open_cluster = []
 
-        for i in range(num_points):
-            r, angle, x, y = cartesian_points[i]
-            next_idx = (i + 1) % num_points
-            next_r, _, next_x, next_y = cartesian_points[next_idx]
+        for idx in range(len(valid_front_points) - 1):
+            angle, r, x, y = valid_front_points[idx]
+            next_angle, next_r, next_x, next_y = valid_front_points[idx + 1]
 
-            # 计算两点间的真实欧氏距离
+            # 计算相邻两点间的空间欧氏距离
             euclidean_dist = math.hypot(next_x - x, next_y - y)
 
             # 大阈值判定:
-            # 1. 距离大跳跃 (> closed_curve_gap_thresh) -> 闭合曲线断开，属于开环边界
-            # 2. 或者该点直接射向远方 (> open_frontier_range) -> 深度未探索开阔地带
+            # 1. 两点欧氏距离大跳变 (> closed_curve_gap_thresh) -> 闭合曲线在此断开，形成开阔边界
+            # 2. 或者该点测距很远 (> open_frontier_range) -> 深度未探索开阔地带
             is_open_gap = (euclidean_dist > self.closed_curve_gap_thresh) or (r > self.open_frontier_range)
 
             if is_open_gap:
@@ -105,12 +128,12 @@ class FrontierAutoExplorer(Node):
         if len(current_open_cluster) > 0:
             open_frontiers.append(current_open_cluster)
 
-        # 如果全景所有相邻点距离都很小且很近，说明小车陷入了全封闭闭合凹坑 (Dead End)
+        # 如果前向 180° 扇区内所有点距离都很小且紧密连成闭合墙面，说明正前方处于封闭凹坑/死胡同
         if len(open_frontiers) == 0:
             return 0.0, True
 
-        # 对所有未闭合未知开口进行打分，选出最适合走进去的一个:
-        # 打分原则: 深度越深 + 宽度越大 + 偏角越朝向车前 (-90° ~ +90°) 得分越高
+        # 3. 对所有未闭合未知开口进行打分评估，选出最优开进方向
+        # 评分准则: 深度越深 + 宽度越大 + 偏角越朝向正前方 (-45° ~ +45°) 得分越高
         best_angle = 0.0
         max_score = -1.0
 
@@ -118,17 +141,14 @@ class FrontierAutoExplorer(Node):
             avg_r = sum(p[0] for p in frontier) / len(frontier)
             mid_p = frontier[len(frontier) // 2]
             center_angle = mid_p[1]
-            
-            # 将角度归一化到 [-pi, pi]
-            norm_angle = math.atan2(math.sin(center_angle), math.cos(center_angle))
 
-            # 偏好车前扇区 (-100° 到 +100°)，避免盲目倒车
-            angle_preference = max(0.1, math.cos(norm_angle / 2.0))
+            # 偏好正前方扇区，避免过急转弯
+            angle_preference = max(0.2, math.cos(center_angle / 1.5))
             score = (avg_r ** 1.5) * len(frontier) * angle_preference
 
             if score > max_score:
                 max_score = score
-                best_angle = norm_angle
+                best_angle = center_angle
 
         return best_angle, False
 
@@ -141,61 +161,72 @@ class FrontierAutoExplorer(Node):
         if num_points == 0:
             return
 
+        angle_min = self.latest_scan.angle_min
+        angle_increment = self.latest_scan.angle_increment
+
         twist = Twist()
 
-        # 1. 紧急安全底线检测 (计算车正前方正负25度的最近障碍物)
-        def get_sector_min(start_deg, end_deg):
-            start_i = int((start_deg / 360.0) * num_points) % num_points
-            end_i = int((end_deg / 360.0) * num_points) % num_points
-            vals = []
-            idx = start_i
-            while True:
-                r = ranges[idx]
-                if 0.08 < r < 12.0 and not math.isinf(r) and not math.isnan(r):
-                    vals.append(r)
-                if idx == end_i:
-                    break
-                idx = (idx + 1) % num_points
-            return min(vals) if len(vals) > 0 else 10.0
+        # 1. 提取前向扇区最近障碍物距离 (角度采用真实物理角度，完全适配 180° 雷达)
+        front_vals = []
+        left_vals = []
+        right_vals = []
 
-        front_dist = min(get_sector_min(335, 359), get_sector_min(0, 25))
-        front_left = get_sector_min(25, 75)
-        front_right = get_sector_min(285, 335)
+        for i in range(num_points):
+            r = ranges[i]
+            if r < 0.08 or r > 10.0 or math.isinf(r) or math.isnan(r):
+                continue
+
+            raw_ang = angle_min + i * angle_increment
+            norm_ang = math.atan2(math.sin(raw_ang), math.cos(raw_ang))
+
+            # 正前方安全区: [-22°, +22°]
+            if abs(norm_ang) <= math.radians(22):
+                front_vals.append(r)
+            # 前左侧扇区: [+22°, +80°]
+            elif math.radians(22) < norm_ang <= math.radians(80):
+                left_vals.append(r)
+            # 前右侧扇区: [-80°, -22°]
+            elif -math.radians(80) <= norm_ang < -math.radians(22):
+                right_vals.append(r)
+
+        front_dist = min(front_vals) if len(front_vals) > 0 else 10.0
+        front_left = min(left_vals) if len(left_vals) > 0 else 10.0
+        front_right = min(right_vals) if len(right_vals) > 0 else 10.0
 
         # 脱困模式倒计时
         if self.escape_ticks > 0:
             self.escape_ticks -= 1
-            twist.linear.x = 0.05
-            twist.angular.z = 0.8  # 原地旋转寻找出口
+            twist.linear.x = 0.04
+            twist.angular.z = 0.8  # 原地慢转寻找新开阔面
             self.cmd_pub.publish(twist)
             return
 
         # 2. 局部安全防护 (紧急避碰优先级最高)
         if front_dist < self.emergency_stop_dist:
-            # 正前方撞障，停止前进并根据左右空间旋转脱困
+            # 正前方逼近障碍物，停止前进并根据左右空间旋转脱困
             twist.linear.x = 0.0
             twist.angular.z = 0.7 if front_left > front_right else -0.7
             self.cmd_pub.publish(twist)
             return
 
-        # 3. 闭合曲线与未知区域探索引导
+        # 3. 闭合曲线与未知区域探索引导 (针对前向180度有效扇区)
         target_angle, is_closed_trap = self.detect_unknown_frontiers(
-            ranges, self.latest_scan.angle_min, self.latest_scan.angle_increment
+            ranges, angle_min, angle_increment
         )
 
         if is_closed_trap or front_dist < self.emergency_stop_dist * 1.3:
-            # 检测到全封闭死胡同，启动自转探索
-            self.escape_ticks = random.randint(15, 25)
+            # 前方 180° 闭合封闭，启动原地旋转探索其他朝向
+            self.escape_ticks = random.randint(18, 30)
             twist.linear.x = 0.02
             twist.angular.z = 0.85
             self.cmd_pub.publish(twist)
             return
 
         # 4. 朝着非闭合的未知区域平稳开进
-        # 始终保持缓慢前进 (v_x 在 0.15 ~ 0.25 之间根据航向微调)
+        # 始终保持缓慢前进 (v_x 在 0.12 ~ 0.22 之间根据航向微调)
         twist.linear.x = max(0.12, self.base_forward_speed * math.cos(target_angle))
 
-        # P 比例控制器产生偏航角速度，引导车头指向未知开阔口
+        # P 比例控制器产生偏航角速度，引导车头对准未知开口
         kp = 0.95
         angular_val = kp * target_angle
         # 限制角速度，防止过冲甩尾

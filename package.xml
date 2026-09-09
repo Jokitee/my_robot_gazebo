@@ -22,6 +22,7 @@
   <depend>rmoss_gz_resources</depend>
   <depend>rmoss_interfaces</depend>
   <depend>rviz2</depend>
+  <depend>slam_toolbox</depend>
 
 
   <test_depend>ament_lint_auto</test_depend>

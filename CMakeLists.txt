@@ -24,12 +24,14 @@ if(BUILD_TESTING)
 endif()
 
 install(
-  DIRECTORY launch models worlds rviz
+  DIRECTORY launch models worlds rviz config
   DESTINATION share/${PROJECT_NAME}
 )
 
 install(
-  PROGRAMS scripts/auto_explorer.py
+  PROGRAMS
+    scripts/auto_explorer.py
+    scripts/chassis_driver.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
