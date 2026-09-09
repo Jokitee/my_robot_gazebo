@@ -28,4 +28,9 @@ install(
   DESTINATION share/${PROJECT_NAME}
 )
 
+install(
+  PROGRAMS scripts/auto_explorer.py
+  DESTINATION lib/${PROJECT_NAME}
+)
+
 ament_package()
