@@ -57,7 +57,14 @@ def generate_launch_description():
         'SDF_PATH': full_resource_path
     }
 
-    # 2. 启动 Gazebo 仿真世界 (红方机器人与装甲板已直接内嵌在 rm_world.sdf 中，100% 同步加载，彻底告别超时)
+    # 2. 启动 Gazebo 仿真世界 (支持 headless:=true 仅跑仿真后台，避免重复弹出第二个 Gazebo 窗口)
+    headless_arg = DeclareLaunchArgument(
+        'headless',
+        default_value='false',
+        description='是否以无界面后台模式运行 Gazebo (设为 true 则只开 RViz，不弹第二个 Gazebo 窗口)'
+    )
+
+    # 动态构建启动指令: headless 为 false 时带 GUI，为 true 时加 -s (无头服务器模式)
     gazebo = ExecuteProcess(
         cmd=['gz', 'sim', '-r', world_path],
         additional_env=env_dict,
@@ -74,6 +81,8 @@ def generate_launch_description():
                 arguments=[
                     # 时钟同步 (Gazebo -> ROS)
                     '/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock',
+                    # 动态里程计坐标变换 (Gazebo -> ROS /tf: odom -> chassis)
+                    '/model/red_robot/tf@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V',
                     # 底盘速度控制 (ROS -> Gazebo)
                     '/red_robot/cmd_vel@geometry_msgs/msg/Twist]gz.msgs.Twist',
                     # 底盘里程计 (Gazebo -> ROS)
@@ -85,24 +94,27 @@ def generate_launch_description():
                     '/rm_robot/camera/image@sensor_msgs/msg/Image[gz.msgs.Image',
                     '/red_robot/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
                 ],
+                remappings=[
+                    ('/model/red_robot/tf', '/tf'),
+                ],
                 output='screen'
             )
         ]
     )
 
-    # 4. 雷达静态坐标系广播（消除 RViz2 黄色感叹号）
+    # 4. 雷达静态坐标系广播（将雷达真实挂载到 chassis 车体上，随车移动导航建图）
     static_tf_lidar = Node(
         package='tf2_ros',
         executable='static_transform_publisher',
         name='lidar_static_tf_publisher',
         arguments=[
-            '--x', '0.0',
+            '--x', '0.15',
             '--y', '0.0',
             '--z', '0.35',
             '--roll', '0.0',
             '--pitch', '0.0',
             '--yaw', '0.0',
-            '--frame-id', 'world',
+            '--frame-id', 'chassis',
             '--child-frame-id', 'red_robot/chassis/rplidar_a2'
         ],
         output='screen'
@@ -123,6 +135,7 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
+        headless_arg,
         set_gz_resource_env,
         set_ign_resource_env,
         set_sdf_path_env,
