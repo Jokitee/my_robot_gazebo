@@ -245,15 +245,22 @@ private:
         tio.c_cflag &= ~CSIZE;
         tio.c_cflag |= CS8;
         tio.c_cflag |= (CLOCAL | CREAD);
+        tio.c_cflag &= ~CRTSCTS;
+        tio.c_cflag &= ~HUPCL;
 
         tio.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
         tio.c_iflag &= ~(IXON | IXOFF | IXANY);
         tio.c_oflag &= ~OPOST;
 
+        tio.c_cc[VMIN] = 0;
+        tio.c_cc[VTIME] = 1;
+
         if (ioctl(fd_, TCSETS2, &tio) != 0) {
             close(fd_);
             return false;
         }
+
+        fcntl(fd_, F_SETFL, 0);
 
         // 显式拉高 DTR 和 RTS 控制线 (很多 CDC 串口驱动板以此作为电机启动使能信号)
         int dtr_rts = TIOCM_DTR | TIOCM_RTS;
@@ -632,7 +639,7 @@ private:
         scan_pub_->publish(scan);
         publishFovMarker(stamp);
         RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 3000,
-            ">>> 正在持续发布 180° 扫描数据 [/scan] 与限定区块 Marker (累计帧数: %ld)", scan_count_);
+            ">>> 正在持续发布 180° 扫描数据 [/scan] 与限定区块 Marker (累计帧数: %d)", scan_count_);
     }
 };
 

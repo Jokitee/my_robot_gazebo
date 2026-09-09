@@ -41,6 +41,7 @@ install(
   PROGRAMS
     scripts/auto_explorer.py
     scripts/chassis_driver.py
+    scripts/lidar_driver.py
     scripts/test_lidar.py
   DESTINATION lib/${PROJECT_NAME}
 )
