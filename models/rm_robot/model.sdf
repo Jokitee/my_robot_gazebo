@@ -12,8 +12,8 @@
 		<!--chassis-->
 		<link name="chassis">
 
-			<!-- 360度激光雷达传感器 (使用 CPU lidar 兼容虚拟机环境) -->
-			<sensor name="rplidar_a2" type="lidar">
+			<!-- 360度激光雷达传感器 (Gazebo Sim 必须为 gpu_lidar 且子标签为 lidar) -->
+			<sensor name="rplidar_a2" type="gpu_lidar">
 				<pose>0.15 0 0.35 0 0 0</pose> <!-- 安装在底盘前上方，避开遮挡 -->
 				<always_on>true</always_on>
 				<visualize>true</visualize>
