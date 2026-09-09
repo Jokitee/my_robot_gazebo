@@ -126,7 +126,9 @@ def generate_launch_description():
         output='screen',
         parameters=[{
             'scan_topic': '/scan',
-            'cmd_topic': '/cmd_vel'
+            'cmd_topic': '/cmd_vel',
+            'forward_speed': 0.05,
+            'max_turn_speed': 0.30
         }],
         condition=IfCondition(LaunchConfiguration('use_auto_explorer'))
     )

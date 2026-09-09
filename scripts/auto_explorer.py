@@ -43,8 +43,12 @@ class FrontierAutoExplorer(Node):
         # 2. 定时控制循环 (10 Hz，0.1秒一次决策)
         self.timer = self.create_timer(0.1, self.control_loop)
 
-        # 3. 速度与安全参数 (平稳低速前行)
-        self.base_forward_speed = 0.22      # 缓慢前进基准线速度 (m/s)
+        # 3. 速度与安全参数 (超低速安全平缓前行)
+        self.declare_parameter('forward_speed', 0.05)       # 缓慢前进基准线速度 (默认 0.05 m/s)
+        self.declare_parameter('max_turn_speed', 0.30)      # 平缓转向最大角速度 (默认 0.3 rad/s)
+        self.base_forward_speed = float(self.get_parameter('forward_speed').value)
+        self.max_turn_speed = float(self.get_parameter('max_turn_speed').value)
+
         self.emergency_stop_dist = 0.42     # 紧急避碰前向安全底线 (m)
         self.side_safe_margin = 0.35        # 车体侧面安全间距 (m)
 
@@ -196,8 +200,8 @@ class FrontierAutoExplorer(Node):
         # 脱困模式倒计时
         if self.escape_ticks > 0:
             self.escape_ticks -= 1
-            twist.linear.x = 0.04
-            twist.angular.z = 0.8  # 原地慢转寻找新开阔面
+            twist.linear.x = 0.01
+            twist.angular.z = self.max_turn_speed  # 原地超慢转寻找新开阔面
             self.cmd_pub.publish(twist)
             return
 
@@ -205,7 +209,7 @@ class FrontierAutoExplorer(Node):
         if front_dist < self.emergency_stop_dist:
             # 正前方逼近障碍物，停止前进并根据左右空间旋转脱困
             twist.linear.x = 0.0
-            twist.angular.z = 0.7 if front_left > front_right else -0.7
+            twist.angular.z = self.max_turn_speed if front_left > front_right else -self.max_turn_speed
             self.cmd_pub.publish(twist)
             return
 
@@ -215,28 +219,28 @@ class FrontierAutoExplorer(Node):
         )
 
         if is_closed_trap or front_dist < self.emergency_stop_dist * 1.3:
-            # 前方 180° 闭合封闭，启动原地旋转探索其他朝向
+            # 前方 180° 闭合封闭，启动原地微速旋转探索其他朝向
             self.escape_ticks = random.randint(18, 30)
-            twist.linear.x = 0.02
-            twist.angular.z = 0.85
+            twist.linear.x = 0.01
+            twist.angular.z = self.max_turn_speed
             self.cmd_pub.publish(twist)
             return
 
-        # 4. 朝着非闭合的未知区域平稳开进
-        # 始终保持缓慢前进 (v_x 在 0.12 ~ 0.22 之间根据航向微调)
-        twist.linear.x = max(0.12, self.base_forward_speed * math.cos(target_angle))
+        # 4. 朝着非闭合的未知区域超慢平稳开进 (约 0.03 ~ 0.05 m/s)
+        forward_val = self.base_forward_speed * max(0.2, math.cos(target_angle))
+        twist.linear.x = min(self.base_forward_speed, max(0.02, forward_val))
 
-        # P 比例控制器产生偏航角速度，引导车头对准未知开口
-        kp = 0.95
+        # P 比例控制器产生偏航角速度，引导车头微调对准未知开口
+        kp = 0.55
         angular_val = kp * target_angle
-        # 限制角速度，防止过冲甩尾
-        twist.angular.z = max(-0.8, min(0.8, angular_val))
+        # 限制角速度，防止急转甩尾
+        twist.angular.z = max(-self.max_turn_speed, min(self.max_turn_speed, angular_val))
 
-        # 贴近侧墙时给予适量斥力修正
+        # 贴近侧墙时给予适量柔和斥力修正
         if front_left < self.side_safe_margin:
-            twist.angular.z -= 0.25
+            twist.angular.z -= 0.10
         elif front_right < self.side_safe_margin:
-            twist.angular.z += 0.25
+            twist.angular.z += 0.10
 
         self.cmd_pub.publish(twist)
 
