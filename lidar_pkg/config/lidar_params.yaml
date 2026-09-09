@@ -1,0 +1,13 @@
+lidar_node:
+  ros__parameters:
+    port_name: "/dev/ttyACM0"
+    frame_id: "laser"
+    # 角度裁剪配置: 上侧左右 180 度 (左侧 270° ~ 正前 0° ~ 右侧 90°)
+    angle_crop:
+      enabled: true
+      min_deg: 270.0
+      max_deg: 90.0
+    filter:
+      enabled: true
+      radius: 0.10
+      min_neighbors: 2
