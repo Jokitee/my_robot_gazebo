@@ -66,6 +66,7 @@ def generate_launch_description():
 
     # 3. 延时 2.0 秒启动 ROS-Gazebo 话题桥接器
     bridge = TimerAction(
+        period=2.0,
         actions=[
             Node(
                 package='ros_gz_bridge',
