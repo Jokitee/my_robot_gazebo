@@ -19,7 +19,7 @@
 				<visualize>true</visualize>
 				<update_rate>10</update_rate> <!-- 10 Hz 扫描频率 -->
 				<topic>/red_robot/scan</topic>
-				<ray>
+				<lidar>
 					<scan>
 						<horizontal>
 							<samples>360</samples>
@@ -33,7 +33,7 @@
 						<max>12.0</max> <!-- 比赛场地最大测距 12 米 -->
 						<resolution>0.01</resolution>
 					</range>
-				</ray>
+				</lidar>
 			</sensor>
 
 			<inertial>
