@@ -66,28 +66,23 @@ def generate_launch_description():
 
     # 3. 延时 2.0 秒启动 ROS-Gazebo 话题桥接器
     bridge = TimerAction(
-        period=2.0,
         actions=[
             Node(
                 package='ros_gz_bridge',
                 executable='parameter_bridge',
                 arguments=[
-                    # 时钟同步
+                    # 时钟同步 (Gazebo -> ROS)
                     '/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock',
-                    # 速度控制与里程计
-                    '/red_robot/cmd_vel@geometry_msgs/msg/Twist@gz.msgs.Twist',
-                    '/red_robot/odometry@nav_msgs/msg/Odometry@gz.msgs.Odometry',
-                    # 云台关节控制
-                    '/model/red_robot/joint/gimbal_yaw_joint/cmd_vel@std_msgs/msg/Float64@gz.msgs.Double',
-                    '/model/red_robot/joint/gimbal_pitch_joint/cmd_vel@std_msgs/msg/Float64@gz.msgs.Double',
-                    # 传感器：单目相机与激光雷达
-                    '/rm_robot/camera/image@sensor_msgs/msg/Image@gz.msgs.Image',
-                    '/red_robot/scan@sensor_msgs/msg/LaserScan@gz.msgs.LaserScan',
-                ],
-                remappings=[
-                    ('/rm_robot/camera/image', '/camera/image_raw'),
-                    ('/red_robot/scan', '/scan'),
-                    ('/red_robot/odometry', '/odom'),
+                    # 底盘速度控制 (ROS -> Gazebo)
+                    '/red_robot/cmd_vel@geometry_msgs/msg/Twist]gz.msgs.Twist',
+                    # 底盘里程计 (Gazebo -> ROS)
+                    '/red_robot/odometry@nav_msgs/msg/Odometry[gz.msgs.Odometry',
+                    # 云台关节控制 (ROS -> Gazebo)
+                    '/model/red_robot/joint/gimbal_yaw_joint/cmd_vel@std_msgs/msg/Float64]gz.msgs.Double',
+                    '/model/red_robot/joint/gimbal_pitch_joint/cmd_vel@std_msgs/msg/Float64]gz.msgs.Double',
+                    # 传感器：单目相机与激光雷达 (Gazebo -> ROS 严格单向传输)
+                    '/rm_robot/camera/image@sensor_msgs/msg/Image[gz.msgs.Image',
+                    '/red_robot/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
                 ],
                 output='screen'
             )

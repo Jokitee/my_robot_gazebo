@@ -13,7 +13,7 @@ class AutoExplorer(Node):
         # 订阅激光雷达
         self.scan_sub = self.create_subscription(
             LaserScan,
-            '/scan',
+            '/red_robot/scan',
             self.scan_callback,
             10
         )
