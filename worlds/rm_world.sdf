@@ -1,0 +1,139 @@
+<?xml version="1.0" ?>
+<sdf version="1.8">
+  <world name="rm_world">
+    <!-- 1. 系统核心插件 -->
+    <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics" />
+    <plugin filename="gz-sim-user-commands-system" name="gz::sim::systems::UserCommands" />
+    <plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster" />
+    <!-- 传感器渲染引擎 (雷达与相机必须开启) -->
+    <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors">
+      <render_engine>ogre</render_engine>
+    </plugin>
+
+    <!-- 顶棚主聚光灯群 (多角度高对比度光照) -->
+    <light type="directional" name="center_light">
+      <cast_shadows>true</cast_shadows>
+      <pose>0 0 12 0 0 0</pose>
+      <diffuse>0.9 0.9 0.95 1</diffuse>
+      <specular>0.3 0.3 0.3 1</specular>
+      <direction>-0.2 0.2 -0.9</direction>
+    </light>
+    <light type="directional" name="side_light">
+      <cast_shadows>false</cast_shadows>
+      <pose>0 0 10 0 0 0</pose>
+      <diffuse>0.4 0.4 0.45 1</diffuse>
+      <direction>0.3 -0.2 -0.8</direction>
+    </light>
+
+    <!-- 大型竞技场主体模型 -->
+    <model name="complex_rm_arena">
+      <static>true</static>
+      <pose>0 0 0 0 0 0</pose>
+
+      <!-- 1. 12m x 8m 主防滑深灰地板 -->
+      <link name="arena_floor">
+        <collision name="floor_col">
+          <geometry><box><size>12.0 8.0 0.05</size></box></geometry>
+        </collision>
+        <visual name="floor_vis">
+          <geometry><box><size>12.0 8.0 0.05</size></box></geometry>
+          <material>
+            <ambient>0.22 0.22 0.25 1</ambient>
+            <diffuse>0.22 0.22 0.25 1</diffuse>
+          </material>
+        </visual>
+      </link>
+
+      <!-- 红蓝基地地面地标 -->
+      <link name="red_base_ground">
+        <pose>-5.0 0 0.026 0 0 0</pose>
+        <visual name="vis">
+          <geometry><box><size>1.6 2.4 0.002</size></box></geometry>
+          <material><ambient>0.8 0.15 0.15 1</ambient><diffuse>0.8 0.15 0.15 1</diffuse></material>
+        </visual>
+      </link>
+      <link name="blue_base_ground">
+        <pose>5.0 0 0.026 0 0 0</pose>
+        <visual name="vis">
+          <geometry><box><size>1.6 2.4 0.002</size></box></geometry>
+          <material><ambient>0.15 0.25 0.8 1</ambient><diffuse>0.15 0.25 0.8 1</diffuse></material>
+        </visual>
+      </link>
+
+      <!-- 2. 四周围墙 (0.8m 高防冲出围栏) -->
+      <link name="wall_north">
+        <pose>0 4.025 0.4 0 0 0</pose>
+        <collision name="col"><geometry><box><size>12.05 0.05 0.8</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>12.05 0.05 0.8</size></box></geometry><material><ambient>0.5 0.5 0.55 0.9</ambient><diffuse>0.5 0.5 0.55 0.9</diffuse></material></visual>
+      </link>
+      <link name="wall_south">
+        <pose>0 -4.025 0.4 0 0 0</pose>
+        <collision name="col"><geometry><box><size>12.05 0.05 0.8</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>12.05 0.05 0.8</size></box></geometry><material><ambient>0.5 0.5 0.55 0.9</ambient><diffuse>0.5 0.5 0.55 0.9</diffuse></material></visual>
+      </link>
+      <link name="wall_west">
+        <pose>-6.025 0 0.4 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.05 8.1 0.8</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.05 8.1 0.8</size></box></geometry><material><ambient>0.8 0.2 0.2 1</ambient><diffuse>0.8 0.2 0.2 1</diffuse></material></visual>
+      </link>
+      <link name="wall_east">
+        <pose>6.025 0 0.4 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.05 8.1 0.8</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.05 8.1 0.8</size></box></geometry><material><ambient>0.2 0.3 0.8 1</ambient><diffuse>0.2 0.3 0.8 1</diffuse></material></visual>
+      </link>
+
+      <!-- 3. 中央战术核心：十字掩体群 -->
+      <link name="center_block">
+        <pose>0 0 0.3 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.8 0.8 0.6</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.8 0.8 0.6</size></box></geometry><material><ambient>0.3 0.35 0.4 1</ambient><diffuse>0.3 0.35 0.4 1</diffuse></material></visual>
+      </link>
+      <link name="center_pillar_ne">
+        <pose>1.5 1.2 0.4 0 0 0</pose>
+        <collision name="col"><geometry><cylinder><radius>0.2</radius><length>0.8</length></cylinder></geometry></collision>
+        <visual name="vis"><geometry><cylinder><radius>0.2</radius><length>0.8</length></cylinder></geometry><material><ambient>0.7 0.7 0.7 1</ambient><diffuse>0.7 0.7 0.7 1</diffuse></material></visual>
+      </link>
+      <link name="center_pillar_sw">
+        <pose>-1.5 -1.2 0.4 0 0 0</pose>
+        <collision name="col"><geometry><cylinder><radius>0.2</radius><length>0.8</length></cylinder></geometry></collision>
+        <visual name="vis"><geometry><cylinder><radius>0.2</radius><length>0.8</length></cylinder></geometry><material><ambient>0.7 0.7 0.7 1</ambient><diffuse>0.7 0.7 0.7 1</diffuse></material></visual>
+      </link>
+
+      <!-- 4. 北部战术区：L 型转弯走廊掩体 (雷达避障测试区) -->
+      <link name="north_l_wall_1">
+        <pose>-2.5 2.5 0.35 0 0 0</pose>
+        <collision name="col"><geometry><box><size>2.0 0.3 0.7</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>2.0 0.3 0.7</size></box></geometry><material><ambient>0.35 0.35 0.4 1</ambient><diffuse>0.4 0.4 0.45 1</diffuse></material></visual>
+      </link>
+      <link name="north_l_wall_2">
+        <pose>-1.65 1.65 0.35 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.3 1.4 0.7</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.3 1.4 0.7</size></box></geometry><material><ambient>0.35 0.35 0.4 1</ambient><diffuse>0.4 0.4 0.45 1</diffuse></material></visual>
+      </link>
+
+      <!-- 5. 南部战术区：连续立柱森林区 (Pillars，测试雷达多目标点云) -->
+      <link name="south_pillar_1">
+        <pose>2.5 -2.5 0.35 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.4 0.4 0.7</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.4 0.4 0.7</size></box></geometry><material><ambient>0.6 0.6 0.65 1</ambient><diffuse>0.6 0.6 0.65 1</diffuse></material></visual>
+      </link>
+      <link name="south_pillar_2">
+        <pose>3.8 -1.5 0.35 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.4 0.4 0.7</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.4 0.4 0.7</size></box></geometry><material><ambient>0.6 0.6 0.65 1</ambient><diffuse>0.6 0.6 0.65 1</diffuse></material></visual>
+      </link>
+      <link name="south_pillar_3">
+        <pose>1.2 -2.5 0.35 0 0 0</pose>
+        <collision name="col"><geometry><box><size>0.4 0.4 0.7</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.4 0.4 0.7</size></box></geometry><material><ambient>0.6 0.6 0.65 1</ambient><diffuse>0.6 0.6 0.65 1</diffuse></material></visual>
+      </link>
+
+      <!-- 6. 梯形斜角障碍物 (打破规则直角，提供丰富的激光雷达反射角) -->
+      <link name="angled_obstacle">
+        <pose>3.0 2.2 0.3 0 0 0.785</pose> <!-- 45度倾角 -->
+        <collision name="col"><geometry><box><size>1.5 0.35 0.6</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>1.5 0.35 0.6</size></box></geometry><material><ambient>0.4 0.45 0.5 1</ambient><diffuse>0.4 0.45 0.5 1</diffuse></material></visual>
+      </link>
+    </model>
+  </world>
+</sdf>
