@@ -2,26 +2,22 @@ import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import (
-    DeclareLaunchArgument,
     ExecuteProcess,
     SetEnvironmentVariable,
     TimerAction,
 )
-from launch.conditions import IfCondition
-from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
 
 def generate_launch_description():
     pkg_dir = get_package_share_directory('my_robot_gazebo')
     world_path = os.path.join(pkg_dir, 'worlds', 'rm_world.sdf')
-    model_path = os.path.join(pkg_dir, 'models', 'rm_robot', 'model.sdf')
-    target_path = os.path.join(pkg_dir, 'models', 'armor_target', 'model.sdf')
     models_dir = os.path.join(pkg_dir, 'models')
     worlds_dir = os.path.join(pkg_dir, 'worlds')
     rviz_config_path = os.path.join(pkg_dir, 'rviz', 'default.rviz')
 
-    # 1. 构建完整的 Gazebo 资源路径（包含 rmoss_gz_resources，机器人的轮子、云台、装甲板网格全在此处）
+    # 1. 构建全量 Gazebo 模型与网格资源路径
+    # 包含了当前包 models、worlds 以及外部网格模型包 rmoss_gz_resources
     resource_paths = [pkg_dir, models_dir, worlds_dir]
     try:
         rmoss_res_dir = os.path.join(
@@ -34,13 +30,13 @@ def generate_launch_description():
     except Exception:
         pass
 
-    # 保留系统现存的环境变量，避免冲掉 source 进来的环境变量
+    # 保留系统现存的环境变量，避免覆盖
     for env_var in ['GZ_SIM_RESOURCE_PATH', 'IGN_GAZEBO_RESOURCE_PATH', 'SDF_PATH']:
         val = os.environ.get(env_var, '')
         if val:
             resource_paths.append(val)
 
-    full_resource_path = ':'.join(resource_paths)
+    full_resource_path = ':'.join([p for p in resource_paths if p])
 
     set_gz_resource_env = SetEnvironmentVariable(
         name='GZ_SIM_RESOURCE_PATH',
@@ -61,54 +57,14 @@ def generate_launch_description():
         'SDF_PATH': full_resource_path
     }
 
-    # 2. 启动 Gazebo 仿真世界 (-r 确保物理引擎直接运行，显式传递环境变量字典)
+    # 2. 启动 Gazebo 仿真世界 (红方机器人与装甲板已直接内嵌在 rm_world.sdf 中，100% 同步加载，彻底告别超时)
     gazebo = ExecuteProcess(
         cmd=['gz', 'sim', '-r', world_path],
         additional_env=env_dict,
         output='screen'
     )
 
-    # 3. 延时 4.0 秒生成红方步兵机器人（此时所有网格路径就位且服务已准备好）
-    spawn_robot = TimerAction(
-        period=4.0,
-        actions=[
-            Node(
-                package='ros_gz_sim',
-                executable='create',
-                arguments=[
-                    '-world', 'rm_world',
-                    '-name', 'red_robot',
-                    '-file', model_path,
-                    '-x', '-4.5',
-                    '-y', '0.0',
-                    '-z', '0.15'
-                ],
-                output='screen'
-            )
-        ]
-    )
-
-    # 4. 延时 6.0 秒生成装甲板靶标（错开 2 秒，避免并发死锁）
-    spawn_target = TimerAction(
-        period=6.0,
-        actions=[
-            Node(
-                package='ros_gz_sim',
-                executable='create',
-                arguments=[
-                    '-world', 'rm_world',
-                    '-name', 'armor_target',
-                    '-file', target_path,
-                    '-x', '2.0',
-                    '-y', '0.0',
-                    '-z', '0.0'
-                ],
-                output='screen'
-            )
-        ]
-    )
-
-    # 5. 延时 2.0 秒启动 ROS-Gazebo 话题桥接器
+    # 3. 延时 2.0 秒启动 ROS-Gazebo 话题桥接器
     bridge = TimerAction(
         period=2.0,
         actions=[
@@ -138,7 +94,7 @@ def generate_launch_description():
         ]
     )
 
-    # 6. 雷达静态坐标系广播（采用 ROS 2 新式参数格式，消除老语法警告）
+    # 4. 雷达静态坐标系广播（消除 RViz2 黄色感叹号）
     static_tf_lidar = Node(
         package='tf2_ros',
         executable='static_transform_publisher',
@@ -156,7 +112,7 @@ def generate_launch_description():
         output='screen'
     )
 
-    # 7. 启动 RViz2 可视化工具
+    # 5. 启动 RViz2 可视化节点
     rviz_node = TimerAction(
         period=2.5,
         actions=[
@@ -178,6 +134,4 @@ def generate_launch_description():
         bridge,
         static_tf_lidar,
         rviz_node,
-        spawn_robot,
-        spawn_target,
     ])

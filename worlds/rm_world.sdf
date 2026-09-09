@@ -135,5 +135,20 @@
         <visual name="vis"><geometry><box><size>1.5 0.35 0.6</size></box></geometry><material><ambient>0.4 0.45 0.5 1</ambient><diffuse>0.4 0.45 0.5 1</diffuse></material></visual>
       </link>
     </model>
+
+    <!-- 7. 预置红方步兵机器人 (随世界启动直接加载，彻底告别 create 服务超时) -->
+    <include>
+      <name>red_robot</name>
+      <uri>model://rm_robot</uri>
+      <pose>-4.5 0 0.15 0 0 0</pose>
+    </include>
+
+    <!-- 8. 预置装甲板靶标 (随世界启动直接加载) -->
+    <include>
+      <name>armor_target</name>
+      <uri>model://armor_target</uri>
+      <pose>2.0 0 0 0 0 0</pose>
+    </include>
+
   </world>
 </sdf>
