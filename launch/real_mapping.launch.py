@@ -72,9 +72,9 @@ def generate_launch_description():
         }]
     )
 
-    # 4. 真实激光雷达驱动节点 (lidar_pkg)
+    # 4. 真实激光雷达驱动节点 (内置于 my_robot_gazebo)
     lidar_node = Node(
-        package='lidar_pkg',
+        package='my_robot_gazebo',
         executable='lidar_node',
         name='lidar_node',
         output='screen',
