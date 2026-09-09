@@ -16,7 +16,7 @@ find_package(visualization_msgs REQUIRED)
 find_package(OpenCV REQUIRED)
 
 # --- 编译激光雷达硬件驱动节点 (内置于 my_robot_gazebo) ---
-add_executable(lidar_node lidar_pkg/src/lidar_node.cpp)
+add_executable(lidar_node src/lidar_node.cpp)
 ament_target_dependencies(lidar_node rclcpp sensor_msgs visualization_msgs)
 target_link_libraries(lidar_node ${OpenCV_LIBS})
 
@@ -33,7 +33,7 @@ if(BUILD_TESTING)
 endif()
 
 install(
-  DIRECTORY launch models worlds rviz config lidar_pkg
+  DIRECTORY launch models worlds rviz config
   DESTINATION share/${PROJECT_NAME}
 )
 
