@@ -82,10 +82,10 @@ public:
         }
 
         // 5. 等待 USB-CDC 握手稳定，并连续发送启动指令 (A5 60)
-        usleep(150000);
-        for (int i = 0; i < 3; ++i) {
+        usleep(200000);
+        for (int i = 0; i < 5; ++i) {
             sendCmd({0xA5, 0x60});
-            usleep(50000);
+            usleep(60000);
         }
 
         RCLCPP_INFO(this->get_logger(), "Lidar started. Port: %s, Baud: %d", port_name_.c_str(), baudrate_);
@@ -256,6 +256,9 @@ private:
         }
 
         // 显式拉高 DTR 和 RTS 控制线 (很多 CDC 串口驱动板以此作为电机启动使能信号)
+        int dtr_rts = TIOCM_DTR | TIOCM_RTS;
+        ioctl(fd_, TIOCMBIS, &dtr_rts);
+
         int status = 0;
         if (ioctl(fd_, TIOCMGET, &status) == 0) {
             status |= TIOCM_DTR | TIOCM_RTS;
@@ -304,6 +307,7 @@ private:
 
         case WAIT_HEADER2:
             if (byte == 0x55) {
+                RCLCPP_INFO_ONCE(this->get_logger(), ">>> 成功接收并匹配到底层雷达数据帧 (0xAA 0x55)!");
                 state_ = READ_META;
                 packet_buffer_.push_back(byte);
             } else if (byte == 0xAA) {
@@ -627,6 +631,8 @@ private:
 
         scan_pub_->publish(scan);
         publishFovMarker(stamp);
+        RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 3000,
+            ">>> 正在持续发布 180° 扫描数据 [/scan] 与限定区块 Marker (累计帧数: %ld)", scan_count_);
     }
 };
 
