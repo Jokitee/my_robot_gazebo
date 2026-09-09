@@ -21,7 +21,7 @@ def generate_launch_description():
     pkg_dir = get_package_share_directory('my_robot_gazebo')
 
     config_path = os.path.join(pkg_dir, 'config', 'lidar_params.yaml')
-    rviz_config_path = os.path.join(pkg_dir, 'lidar_pkg', 'rviz', 'lidar.rviz')
+    rviz_config_path = os.path.join(pkg_dir, 'rviz', 'lidar.rviz')
 
     port_arg = DeclareLaunchArgument(
         'port_name',
